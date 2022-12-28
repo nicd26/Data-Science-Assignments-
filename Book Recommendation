@@ -1,0 +1,95 @@
+"""This program imports and cleans the data for a book recommendation system
+   before printing the top 5 highest recommended book using cosine similarity.
+Author: Nicole Dunn NDU31
+Date: 4th April 2022.
+"""
+
+import pandas as pd
+from bs4 import BeautifulSoup
+import lxml
+from ast import literal_eval
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import CountVectorizer
+
+def data_cleaning():
+    """Imports and cleans the dataset"""
+    books_df = pd.read_csv('https://raw.githubusercontent.com/malcolmosh/goodbooks-10k/master/books_enriched.csv', 
+                           index_col=[0], converters={"genres": literal_eval})
+    books_df['description'] = books_df['description'].apply(lambda x: BeautifulSoup(x, features="lxml").get_text() 
+                                                            if pd.isnull(x)==False else x)
+    books_df = books_df.drop(columns=["index",'best_book_id','work_id',
+                                      'ratings_count',"isbn", "isbn13",
+                                      'work_text_reviews_count','image_url',
+                                      'small_image_url', 'books_count', 
+                                      'work_ratings_count', 'authors_2'])
+    books_df['language_code'] = books_df['language_code'].apply(change_lang)
+    (books_df['language_code']=="eng").sum()
+    books_df = books_df.drop(books_df[books_df["language_code"] != "eng"].index)
+    duplicates = books_df.loc[(books_df['title'].duplicated(keep=False))==True,:].sort_values('title')
+    books_df = books_df.drop_duplicates(subset = ['title'])
+    return books_df
+    
+def change_lang(lang):
+    """Function that changes en language values to eng"""
+    if str(lang)[0:2]=='en':
+        return str('eng')
+    else:
+        return lang
+
+def user_input(data_set):
+    """Function to get title from the user"""
+    prompt = "What book title are you wanting a recommendation from? "
+    b_title = input(prompt)
+    while b_title not in list(data_set['original_title']):
+        print("Title not in list, please try again. ")
+        b_title = input(prompt)
+    return data_set[data_set['original_title'] == b_title]['book_id'].values[0]
+
+
+def combine_features(data):
+    """Function that combines important columns"""
+    features = []
+    for i in range(data.shape[0]):
+        features.append(str(data['title'][i]) + ' ' + str(data['description'][i]))
+    return features
+
+def sim_mathematics(final_set, book_title_id):
+    """Function that returns the cosine similarity index with book id key"""
+    cm = CountVectorizer().fit_transform(final_set['combined_features'])
+    cs = cosine_similarity(cm)
+    book_title = final_set['title'][book_title_id - 1]
+    book_id = final_set[final_set.title == book_title]['book_id'].values[0]
+    similarity_scores = list(enumerate(cs[book_id-1]))
+    sort_scores = sorted(similarity_scores, key=lambda x:x[1],reverse= True)    
+    return sort_scores[1:], book_title
+
+def processString(text):
+    """Function to clean up text"""
+    specialChars = "[]!#$%^&*()'" 
+    for specialChar in specialChars:
+        text = text.replace(specialChar, '')
+    return text
+
+def recommendations(Title, data, scoring):
+    """Function that prints the top 5 book recommendations"""
+    i = 0
+    print(f'Top 5 Recommendations for {Title}:')
+    while i < 5:
+        item = scoring[i]
+        book_title = data[data.book_id == item[0]]['title'].values[0]
+        new = data[data.book_id == item[0]]['authors'].values[0]
+        book_author = processString(new)
+        print(f"{i+1} {book_title} by {book_author}")
+        i += 1
+
+def main():
+    """Main Program"""
+    data_set = data_cleaning()
+    book_title_id = user_input(data_set)
+    data_set.reset_index(inplace=True,drop=True)   
+    data_set['combined_features'] = combine_features(data_set) 
+    similarity, book_title = sim_mathematics(data_set, book_title_id)
+    recommendations(book_title, data_set, similarity)
+
+
+main()
