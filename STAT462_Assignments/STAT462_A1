@@ -1,0 +1,251 @@
+---
+title: "STAT 462 Assignment 1"
+author: "NDU31 - Nicole Dunn"
+date: '2022-03-16'
+output:
+  pdf_document: default
+  word_document: default
+---
+#  Question 1
+
+## Question 1a and 1b 
+
+```{r echo=TRUE}
+
+x = seq(-4,5,length=100)
+plot(x,
+     0.69*dnorm(x,0,1),
+     pch=21,
+     col="blue",
+     cex=0.6,
+     lwd = 3,
+     type="l",
+     xlab = "x",
+     ylab = "pi_k*f_k",
+     main = "Binary Classification Problem")
+points(x,
+       0.31*dnorm(x,1,sqrt(0.5)),
+       pch=21,
+       col="red",
+       cex=0.6,
+       lwd = 3,
+       type="l")
+legend("topright",
+       legend = c("Class 0", "Class 1"),
+       col = c("blue","red"),
+       lwd = 4,
+       text.col = "black",
+       horiz = FALSE)
+
+f <- function(x) {
+      0.69*dnorm(x,0,1) - 0.31*dnorm(x,1,sqrt(0.5))}
+
+bayes_boundary1 <- uniroot(f, interval = c(-2,1))
+abline(v=bayes_boundary1$root, col='black', lwd=2)
+bayes_boundary2 <- uniroot(f, interval = c(2,4))
+abline(v=bayes_boundary2$root, col='black', lwd=2)
+
+legend("topright",
+       legend = c("Class 0", "Class 1", "Decision Boundary"),
+       col = c("blue","red", "black"),
+       lwd =3,
+       text.col = "black",
+       horiz = FALSE)
+```
+
+## Question 1b cont. and 1c
+
+```{r echo=TRUE}
+bayes_boundary1$root
+bayes_boundary2$root
+
+#Probability of Class 0 at x = 3 :
+0.69*dnorm(3, 0, 1) / (0.31*dnorm(3, 1, sqrt(0.5)) + 0.69*dnorm(3, 0, 1))
+
+#Probability of Class 1 at x = 3 :
+0.31*dnorm(3, 1, sqrt(0.5)) / (0.31*dnorm(3, 1, sqrt(0.5)) + 0.69*dnorm(3, 0, 1))
+```
+
+## Question 1d
+
+```{r echo=TRUE}
+#Probability of Class 1 at x = 2 :
+0.31*dnorm(2, 1, sqrt(0.5)) / (0.31*dnorm(2, 1, sqrt(0.5)) + 0.69*dnorm(2, 0, 1))
+
+```
+
+##  Question 2a
+
+```{r echo=TRUE}
+kNN <- function(k,x.train,y.train,x.pred) {
+
+n.pred <- length(x.pred);		y.pred <- numeric(n.pred)
+
+for (i in 1:n.pred){
+  d <- abs(x.train - x.pred[i])
+  dstar = d[order(d)[k]]
+  y.pred[i] <- mean(y.train[d <= dstar])		
+}
+
+invisible(y.pred)
+}
+
+AutoTrain <- read.csv(file = 'AutoTrain.csv')
+AutoTest <- read.csv(file = 'AutoTest.csv')
+
+
+k <- c(2, 5, 10, 20, 30, 50, 100)
+MSE_train <- rep(0, length(k))
+MSE_test <- rep(0, length(k))
+#kNN.train <- kNN model based on training data
+
+for (i in 1:length(k)) {
+  train_pred <- kNN(k[i], AutoTrain$horsepower, AutoTrain$mpg, AutoTrain$horsepower)
+  test_pred <- kNN(k[i], AutoTrain$horsepower, AutoTrain$mpg, AutoTest$horsepower)
+  MSE_train[i] <- (1/length(train_pred))*sum((train_pred - AutoTrain$mpg)^2)
+  MSE_test[i] <- (1/length(test_pred))*sum((test_pred - AutoTest$mpg)^2)
+}
+
+plot(1/k, MSE_train,type="l",col="red",
+     xlab = "1/k",
+     ylab = "MSE",
+     main = "Mean Squared Errors")
+lines(1/k,MSE_test,col="green")
+legend("topright",
+       legend = c("Training MSE", "Testing MSE"),
+       col = c("red","green"),
+       lwd =3,
+       text.col = "black",
+       horiz = FALSE)
+
+
+k = 20
+x.pred <- seq(25, 400, length=1000)
+kNN.vals = kNN(k,
+               AutoTrain$horsepower, 
+               AutoTrain$mpg,
+               x.pred)
+
+plot(AutoTrain$horsepower,AutoTrain$mpg,
+     cex=1,
+     col = "green",
+     xlab = "Horse Power",
+     ylab = "MPG",
+     main = "Nearest Neighbour Averaging") 
+points(AutoTest$horsepower,AutoTest$mpg,
+       cex=1,
+       col = "blue")
+points(x.pred,
+       kNN.vals,
+       pch=15,
+       col="red",
+       cex=0.6)
+legend("topright",
+       legend = c("Training Data", "Testing Data", "Best kNN function"),
+       pch = 1,
+       col = c("green","blue", "red"),
+       text.col = "black",
+       horiz = FALSE)
+
+```
+## Question 3a and b
+
+```{r echo=TRUE}
+q3<-function(x1,x2){ans<-exp(-16+1.4*x1+0.3*x2);return(ans/(1+ans))}
+q3(5,36)
+
+q3b<-function(p,x2){ans1<-((log(p/(1-p))+16-0.3*x2)/ 1.4);return(ans1)}
+q3b(0.5,18)
+```
+
+###Question 4a
+
+```{r echo=True}
+train<- read.csv(file = "BankTrain.csv")
+pairs(train)
+cor(train)
+
+glm.fit=glm(y~x1+x3, data=train, family=binomial)
+summary(glm.fit)
+plot(glm.fit)
+
+```
+
+
+###Question 4bi
+```{r echo=True}
+
+glm.probs=predict(glm.fit, type="response")
+glm.probs[1:10]
+
+
+nrow(train)
+glm.pred=rep("genuine",960)
+glm.pred[glm.probs>.5]="forged"
+
+
+
+outputs <- data.frame(train[,1], train[,3], glm.probs, glm.pred)
+colnames(outputs) <- c('x1', 'x3', 'prob', 'class')
+summary(outputs)
+outputs[1:5,]
+slope <- coef(glm.fit)[2]/(-coef(glm.fit)[3])
+intercept <- coef(glm.fit)[1]/(-coef(glm.fit)[3]) 
+
+ggplot(outputs, aes(x=x1, y=x3, shape=class, color=class)) +
+  geom_point() +
+geom_point(size=2) +
+  ggtitle("Forged vs. Genuine Bank Notes Classification") +
+  geom_abline(intercept = 0.22041/0.21738, slope = -1.31489/0.21738) 
+
+
+
+```
+
+###Question 4bii
+
+```{r echo=True}
+test<- read.csv(file = "BankTest.csv")
+nrow(test)
+
+glm.fit.test=glm(y~x1+x3, data=test, family=binomial)
+glm.probs.test=predict(glm.fit.test, type="response")
+glm.pred.test=rep("genuine",412)
+glm.pred.test[glm.probs.test>.5]="forged"
+
+
+banknotes_table <- table(factor(glm.pred.test, levels = c('genuine', 'forged')), test$y)
+names(dimnames(banknotes_table)) <- c("Predictions", "Observed")
+dimnames(banknotes_table)[[2]] <- c("genuine", "forged")
+banknotes_table
+
+
+
+```
+
+##Question 4biii
+
+```{r echo=TRUE}
+glm.pred.test4=rep("genuine",412)
+glm.pred.test4[glm.probs.test>.3]="forged"
+banknotes_table2 <- table(factor(glm.pred.test4, levels = c('genuine', 'forged')), test$y)
+names(dimnames(banknotes_table2)) <- c("Predictions", "Observed")
+dimnames(banknotes_table2)[[2]] <- c("genuine", "forged")
+banknotes_table2
+
+
+```
+
+###Question 4biii cont.
+
+``` {r echo=TRUE}
+glm.pred.test5=rep("genuine",412)
+glm.pred.test5[glm.probs.test>.6]="forged"
+banknotes_table3 <- table(factor(glm.pred.test5, levels = c('genuine', 'forged')), test$y)
+names(dimnames(banknotes_table3)) <- c("Predictions", "Observed")
+dimnames(banknotes_table3)[[2]] <- c("genuine", "forged")
+banknotes_table3
+
+```
+
+
