@@ -1,0 +1,152 @@
+---
+title: "Data 423 - Assignment 4 - Q1"
+author: "Nicole Dunn - 75958138"
+date: "2022-10-15"
+output: html_notebook
+---
+
+This is an R-Markdown Notebook for classifying the Breast-Cancer data using MLR3
+
+```{r include=FALSE}
+library(mlr3)
+library(mlr3tuning)
+library(mlr3pipelines)
+library(mlr3learners)
+library(paradox)
+library(ranger)
+library(skimr)
+library(mlr3measures)
+library(ggplot2)
+library(ggalluvial)
+```
+
+## Data
+
+```{r}
+mydata <- read.csv(file = "breast-cancer.csv", stringsAsFactors = TRUE)
+mydata$diagnosis <- as.numeric(mydata$diagnosis == "M")
+
+str(mydata)
+
+```
+## Task Creation
+
+
+```{r}
+task_cancer <- as_task_classif(diagnosis ~ ., data = mydata, id = "cancer")
+task_cancer
+```
+## Remove the ID variable
+
+```{r}
+newtask = task_cancer$clone()
+newtask$select(setdiff(newtask$feature_names, "id"))
+newtask$data()
+```
+
+## Test/train Splitting
+
+```{r}
+set.seed(12)
+newtask$col_roles$stratum = "diagnosis"
+newtask$strata
+```
+
+```{r}
+resampling <- rsmp("holdout", ratio=0.7)
+print(resampling)
+```
+
+```{r}
+set.seed(12)
+resampling$instantiate(newtask)
+train <- resampling$train_set(1)
+test <- resampling$test_set(1)
+str(train)
+```
+
+```{r}
+intersect(train, test)
+```
+
+## Preprocessing
+
+``` {r}
+po("smote", dup_size=1) %>>%
+  po("scale", id="scalerOp") %>>% 
+  po("copy", outnum = 2) %>>% 
+  gunion(graphs = list(po("pca", center = TRUE, scale. = TRUE), po("nop"))) %>>% 
+  po("featureunion", innum = 2) %>>% 
+  po("learner", lrn("classif.svm", kernel="radial")) -> pipeline
+pipeline$plot()
+
+```
+```{r}
+glrn = GraphLearner$new(pipeline)
+
+toTune <- ps(
+  scalerOp.scale = p_lgl(),
+  classif.svm.gamma = p_dbl(lower = 0.01, upper = 10)
+)
+```
+  
+```{r}
+scenario <- TuningInstanceSingleCrit$new(
+  task = newtask,
+  learner = glrn,
+  resampling = rsmp("cv", folds = 10), 
+  measure = msr("classif.acc"), # use an accuracy measure 
+  search_space = toTune,
+  terminator = trm("evals", n_evals = 50)
+)
+```  
+  
+```{r, results=FALSE}
+set.seed(12)
+
+searcher <- TunerGridSearch$new() 
+searcher$optimize(scenario) 
+
+```
+```{r}
+scenario$result_learner_param_vals 
+scenario$result_y 
+```
+
+## Assessment
+
+```{r}
+set.seed(12)
+glrn$param_set$values = scenario$result_learner_param_vals
+
+glrn$train(newtask)
+```
+
+```{r}
+predictions = glrn$predict(newtask, row_ids = test)
+predictions
+```
+## Confusion Matrix
+
+```{r}
+cm <- confusion_matrix(predictions$truth, predictions$response, "1")
+cm
+```  
+
+
+The "test" confusion matrix can be visualised using an alluvial plot.
+
+```{r, warning = FALSE}
+dt <- as.data.frame(cm$matrix)
+dt$missclassified <- dt$response != dt$truth
+ggplot(data = dt, mapping = aes(y = Freq, axis1 = response, axis2 = truth, label = after_stat(stratum))) +
+  ggalluvial::geom_alluvium(aes(fill = missclassified, colour = missclassified), show.legend = TRUE) +
+  ggalluvial::geom_stratum(width = 0.2) +
+  geom_label(stat = "stratum", aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("Prediction", "Actual"), expand = c(0.0, 0.0)) +
+  ggtitle("Classification of Breast-cancer diagnoses") +
+  scale_fill_manual(values = c("green","red")) +
+  theme_bw()
+```
+
+End of Notebook
