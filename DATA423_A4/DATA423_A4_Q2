@@ -1,0 +1,150 @@
+---
+title: "Assignment 4"
+author: "Nicole Dunn - 75958138"
+date: "2022-10-24"
+output: html_document
+---
+
+```{r, echo = FALSE, warning=FALSE}
+library(lubridate)
+library(dplyr)
+```
+
+```{r}
+data <- read.csv(file = "monitor.csv", stringsAsFactors = TRUE)
+str(data)
+```
+
+```{r}
+data$Timestamp <- ymd_hms(data$Timestamp)
+data$DayoftheYear <- yday(data$Timestamp)
+str(data)
+```
+
+
+```{r}
+p <- qicharts2::qic(y=Prediction, x=DayoftheYear,
+    data     = data,
+    chart    = 'xbar',
+    freeze   = 40,
+    title    = 'Prediction XBar Chart',
+    ylab     = 'AVG Daily Prediction',
+    xlab     = 'Day of Year')
+plot(p)
+
+
+```
+
+We can see from the XBAR chart for Prediction, that the line stays within the grey background area which is our expected zone. Therefore there are no out of control points. Further exploration can be found with the summaries at the bottom of this notebook. 
+
+```{r}
+m <- qicharts2::qic(y=ProcessMemory, x=DayoftheYear,
+    data     = data,
+    chart    = 'xbar',
+    freeze   = 40,
+    title    = 'Memory XBar Chart',
+    ylab     = 'AVG Memory Processing',
+    xlab     = 'Day of Year')
+plot(m)
+
+
+```
+
+The XBAR chart for Memory has approximately 14 points highlighted in red which means that these points have fallen outside of our expected area. The data also starts to stray from the central line that follows overall mean after the first 40 days of learning. These red points will be picked up with the sigma.signal in the summary. 
+
+```{r}
+t <- qicharts2::qic(y=PredictionTimeMS, x=DayoftheYear,
+    data     = data,
+    chart    = 'xbar',
+    freeze   = 40,
+    title    = 'Prediction Time XBar Chart',
+    ylab     = 'AVG Time Prediction',
+    xlab     = 'Day of Year')
+plot(t)
+
+
+```
+
+As with the XBAR chart previous, the XBAR chart for Time has approximately 8 points that fall outside of the expected zone, and the line strays from the central mean line after the "frozen data".
+
+```{r}
+ps <- qicharts2::qic(y=Prediction, x=DayoftheYear,
+    data     = data,
+    chart    = 's',
+    freeze   = 40,
+    title    = 'Prediction SBar Chart',
+    ylab     = 'AVG Daily Prediction',
+    xlab     = 'Day of Year')
+plot(ps)
+```
+
+The S chart for Prediction stays within the predicted zone and has no breaches. 
+
+```{r}
+ms <- qicharts2::qic(y=ProcessMemory, x=DayoftheYear,
+    data     = data,
+    chart    = 's',
+    freeze   = 40,
+    title    = 'Memory SBar Chart',
+    ylab     = 'AVG Memory Processing',
+    xlab     = 'Day of Year')
+plot(ms)
+```
+
+The S chart for Memory stays mostly within the predicted zone and has one breach which is before the data freeze. 
+
+```{r}
+ts <- qicharts2::qic(y=PredictionTimeMS, x=DayoftheYear,
+    data     = data,
+    chart    = 's',
+    freeze   = 40,
+    title    = 'Time SBar Chart',
+    ylab     = 'AVG Time Prediction',
+    xlab     = 'Day of Year')
+plot(ts)
+```
+
+The S chart for Time shows a drift of the line after the data freeze with multiple breaches beyond the predicted zone.  
+
+```{r}
+df <- data.frame(Measurement = c("Prediction", "Memory", "Time"),
+           Xbar_Runs_Signal = c(summary(p)$runs.signal[1], summary(m)$runs.signal[1], summary(t)$runs.signal[1]),
+           Xbar_Breaches = c(summary(p)$sigma.signal[1], summary(m)$sigma.signal[1], summary(t)$sigma.signal[1]),
+           S_Runs_Signal = c(summary(ps)$runs.signal[1], summary(ms)$runs.signal[1], summary(ts)$runs.signal[1]),
+           S_Breaches = c(summary(ps)$sigma.signal[1], summary(ms)$sigma.signal[1], summary(ts)$sigma.signal[1])
+           )
+df$Overall <- ifelse((df$Xbar_Breaches + df$Xbar_Runs_Signal + df$S_Breaches + df$S_Runs_Signal) == 0,
+                     "In Control", 
+                     "Out of control")
+df
+```
+
+From this summary we can see that the stream of memory usage and prediction time of the model  displayed out of control data whereas the predictions of the server was in control. For the Time charts we can see that the mean has problems as XBAR runs.signal>0 and sigma.signal>0, and the standard deviation also has problems as both signals are greater than 0. The Memory charts have a similar issue as the Time charts but only one of the signals is greater than 0, which still shows problems. The Prediction charts have no breaches or signals greater than 0 hence the previous conclusion. 
+
+```{r}
+summary(p)
+summary(m)
+summary(t)
+summary(ps)
+summary(ms)
+summary(ts)
+```
+Runs rule:
+
+
+Memory XBAR has a longest.run(55) > longest.run.max(10)
+
+Time XBAR has a longest.run(20) > longest.run.max(10)
+
+Time S chart has a longest.run(35) > longest.run.max(10)
+
+
+Crossing rule:
+
+
+Memory XBAR has a n.crossings(30) < n.crossings.min(51)
+
+Time S chart has a n.crossings(21) < n.crossings.min(51)
+
+
+End of Notebook
