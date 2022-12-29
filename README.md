@@ -6,9 +6,7 @@ BigDat focused on statistical methods within R to address the more mathematical 
 
 ## CompSci Project - Book Recommendation Project:
 
-Code included is for my final computer science assignment, using python and many python libraries. 
-
-It sources data from the goodbooks-10k data set and uses multiple functions to clean the data and gather the required fields to provide usable output.
+The CompSci Project used Cosine Similarity to implement machine learning algorithms on gathered data points to return book recommendations based on user preferences. Created with Python and using the Pandas, Beautiful-Soup, LXML, AST and SK.learn libraries. 
 
 ## DatInd Assignment 1
 
